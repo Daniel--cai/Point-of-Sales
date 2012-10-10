@@ -88,12 +88,11 @@ object TransactionMethod{
 
   //AddProdTrolley
   import ActiveProductMethod._
-  def addProductQtyToTransaction(transactionId: Long, productName: String, qty: Long, locationId: Long)= inTransaction{
-    //item : ran(ActiveProd)
-
-
-
-    val products = getVendingProduct(productName, locationId)
+  import LocationMethod._
+  import LocationType._
+  def addProductQtyToTransaction(transactionId: Long, productName: String, qty: Long, locationId: Long, locationType: LocationType)= inTransaction{
+    //item : ran(ActiveProduct)
+    val products = getVendingProduct(productName, locationId, locationType)
     println("location : "+locationId + " length "+ products.length)
     if (products.length >= qty ){
       var i: Int = (qty.toInt) - 1

@@ -5,10 +5,14 @@ import java.util.Date
 import main.scala.classes.Database._
 import org.squeryl.dsl.ManyToOne
 import ProductStatus._
+import LocationType._
 
-class Product (val productName: String, val locationId: Long, val expiryDate: Date, var status: ProductStatus) extends Basic{
+class Product (val productName: String, val locationId: Long, var locationType: LocationType, val expiryDate: Date, var status: ProductStatus) extends Basic{
   lazy val locations: ManyToOne[Location] = locationToProduct.right(this)
-  def this(productName: String, expiryDate: Date) = this(productName,0, expiryDate, ProductStatus.vending)
+  lazy val warehouse: ManyToOne[Warehouse] = warehouseToProduct.right(this)
+
+
+  def this(productName: String, expiryDate: Date) = this(productName,0,LocationType.location, expiryDate, ProductStatus.vending)
 }
 
 
@@ -16,20 +20,27 @@ object ProductMethod {
   //AddProductLocation 2.1.3 - The system will keep track of stock qty
   //AddProductStore
   //AddProductBackstore
-  def newProduct(productName: String, locationId: Long, expiryDate : Date):Long= inTransaction{
+  def newProduct(productName: String, locationId: Long, locationType: LocationType, expiryDate : Date):Long= inTransaction{
     //item : Product
     //productLineExists(productName)
     //val l = locationTable.where(l=>l.id === locationId).single
     val newproduct = new Product(productName, expiryDate)
-    val data = locationTable.where(l => l.id === locationId).single
+    if (locationType == LocationType.warehouse) {
+      val data = warehouseTable.where(l => l.locationId === locationId).single
+      data.products.associate(newproduct)
+    }
+    if (locationType == LocationType.location) {
+      val data = locationTable.where(l => l.id === locationId).single
+      data.products.associate(newproduct)
+    }
     //Stock(location |-> item) = stock
-    data.products.associate(newproduct)
+
     return newproduct.id
   }
 
-  def printAllProducts() {
+  def printAll() = inTransaction{
     for(p <- {from (productTable) (t => select(t))}) {
-      println(p.id+" "+p.productName+" "+p.expiryDate)
+      println(p.id+" "+p.productName+" "+p.locationType+" "+p.expiryDate)
     }
   }
 
@@ -107,14 +118,24 @@ object ActiveProductMethod {
   }
   import ProductStatus._
   import LocationMethod._
-  def getVendingProduct(productName: String, locationId: Long):List[Long] = inTransaction{
-    val products = from(locationTable, productTable)((l,p)=>
-      where(l.id === locationId
-        and l.id === p.locationId
-        and p.productName === productName
-        and p.status === ProductStatus.vending )
-        //and getLocationType(l.id) === getLocationType(locationId))
-        select(p.id))
+  import LocationType._
+  def getVendingProduct(productName: String, locationId: Long, locationType: LocationType):List[Long] = inTransaction{
+
+    val products = locationType match{
+      case LocationType.warehouse =>  from(warehouseTable, productTable)((l,p)=>
+                                       where(l.id === locationId
+                                       and l.id === p.locationId
+                                       and p.productName === productName
+                                       and p.status === ProductStatus.vending )
+                                       select(p.id))
+      //case LocationType.frontstore=> val product
+      case LocationType.warehouse =>   from(locationTable, productTable)((l,p)=>
+                                       where(l.id === locationId
+                                       and l.id === p.locationId
+                                        and p.productName === productName
+                                        and p.status === ProductStatus.vending )
+                                        select(p.id))
+    }
     return products.toList
   }
 

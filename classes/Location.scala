@@ -5,10 +5,11 @@ import org.squeryl.Schema
 import org.squeryl.annotations
 import org.squeryl.dsl.OneToMany
 import org.squeryl.adapters.H2Adapter
-import java.util.{Calendar, Date}
+import java.util.Date
 import java.sql.Timestamp
 import main.scala.classes.Database._
 import LocationType._
+import WarehouseMethod._
 
 class Location (val locationName: String, var locationType: LocationType) extends Basic {
   lazy val products: OneToMany[Product] = locationToProduct.left(this)
@@ -24,10 +25,14 @@ object LocationMethod {
   }
 
   def setLocAsWarehouse(locationId: Long) :Long = inTransaction{
-    import WarehouseMethod._
-    val warehouse = newWarehouse(getLocationName(locationId))
-    locationTable.deleteWhere(l=> l.id === locationId)
-    return warehouse
+
+    val newwarehouse = new Warehouse(getLocationName(locationId), locationId)
+    //Warehouse := Warehouse U {warehouse}
+    warehouseTable.insert(newwarehouse)
+    update(locationTable)(l=>
+      where(l.id === locationId)
+      set(l.locationType := LocationType.warehouse))
+    return newwarehouse.id
   }
 
   def setLocAsBackstore(locationId: Long) :Long = inTransaction{
@@ -56,14 +61,10 @@ object LocationMethod {
       println(l.id + " " + l.locationName + " " + l.locationType)
     }
   }
-
+  import LocationType._
   def getLocationType (locationId: Long):LocationType = inTransaction{
-    /*
-    val l = locationTable.where(l=>l.id === locationId).single
-    if (l.isInstanceOf[Location]) return LocationType.location
-    if (l.isInstanceOf[Warehouse]) return LocationType.warehouse
-    */
-    return LocationType.warehouse
+    val loc = locationTable.where(l=>l.id === locationId).single
+    return loc.locationType
   }
 
 }

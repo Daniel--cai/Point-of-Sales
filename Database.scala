@@ -49,10 +49,7 @@ object Database extends Schema {
   val reservedproductTable = table[ReservedProduct]("reservedproduct")
   val activeproductTable = table[ActiveProduct]("activeproduct")
   val locationToProduct = oneToManyRelation(locationTable, productTable).via((l,p) => l.id === p.locationId )
-
-  override def applyDefaultForeignKeyPolicy(foreignKeyDeclaration: ForeignKeyDeclaration)
-  = foreignKeyDeclaration.constrainReference
-  locationToProduct.foreignKeyDeclaration.constrainReference(onDelete cascade)
+  val warehouseToProduct = oneToManyRelation(warehouseTable, productTable).via((l,p) => l.id === p.locationId )
 }
 
 object GUI extends SimpleSwingApplication{
@@ -86,7 +83,6 @@ object GUI extends SimpleSwingApplication{
       listenTo(convertButton,LocationInput)
       def add() {
         val location = LocationInput.text
-        interface.addWarehouse(location)
         text = location + " added in successfully!"
         println("added successfully")
       }
@@ -121,54 +117,6 @@ object interface{
       printDdl
     }
   }
-
-  /*def addUser (UserName:String)  {
-    inTransaction {
-      val user1 = new User(UserName,UserType.manager,false)
-      user1.add()
-    }
-  }*/
-
-  def printUser (UserID:Long) {
-    inTransaction {
-      val query = userTable.where(a=> a.id === UserID)
-      for (q <- query) {
-        println(q.id+" "+q.name+" "+q.userType)
-      }
-    }
-  }
-
-  def addWarehouse (LocationName:String) {
-    inTransaction {
-      //newLocation(LocationName)
-      //location1.add()
-      //location1.setLocAsWarehouse()
-    }
-  }
-
-  def printWarehouse (LocationName:String) {
-    inTransaction {
-      val query = warehouseTable.where(a=> a.locationName === LocationName)
-      for (q <- query) {
-        println(q.id+" "+q.locationName)
-      }
-    }
-  }
-
-  def printWarehouse () {
-    inTransaction {
-      //val warehouse1 = new Warehouse()
-      //warehouse1.printAll()
-    }
-  }
-  /*def addStore (LocationName:String) {
-    inTransaction {
-      val location1 = new Location(LocationName)
-      location1.add()
-      location1.setLocAsStore()
-    }
-  }*/
-
 }
 
 object Main {
@@ -187,7 +135,7 @@ object Main {
 
     inTransaction {
 
-      drop  // Bad idea in production application!!!!
+      drop
       create
       printDdl
     }
@@ -203,6 +151,7 @@ object Main {
 
       val loc1 = newLocation("A")
       val loc2 = newLocation("B")
+      val war5 = newWarehouse("Z")
       LocationMethod.printAll()
 
 
@@ -212,21 +161,25 @@ object Main {
 
       println("Milk exists "+activeProductExists("Milk"))
       println("Id of milk is " +getActiveProductId("Milk"))
-      val milk1 = newProduct("Milk", loc1, dateFormat.parse("02-01-1992"))
-      val milk2 = newProduct("Milk", loc1, dateFormat.parse("02-01-1992"))
+      val milk1 = newProduct("Milk", loc1, LocationType.location,dateFormat.parse("02-01-1992"))
+      val milk2 = newProduct("Milk", loc1, LocationType.location,dateFormat.parse("02-01-1992"))
+      val cheese = newProduct("Milk", war5, LocationType.warehouse,dateFormat.parse("02-01-1992"))
       //moveProductLocation(milk2, loc2)
+
       val mem1 = newMember("Daniel Cai")
       val tra1 = newTransaction(use1, mem1)
       println("user name of tra1 is "+getUserName(getTransactionUser(tra1)))
-      addProductQtyToTransaction(tra1, "Milk", 1, loc1)
+      ProductMethod.printAll()
+      addProductQtyToTransaction(tra1, "Milk", 1, loc1, LocationType.location)
       val war2 = newWarehouse("C")
       val war1 = newWarehouse("D")
+
       println("war1 "+ war1 + "loc 1 " + loc1)
       println("Total Milk at loc1: "+ productStockAtLocation("Milk", loc1))
       println("Total Milk at warehouse: "+ productStockAtLocation("Milk", war1))
       RestockWarehouse(war1,"Milk",  dateFormat.parse("02-10-2012"), 20)
       println("Total Milk at warehouse after restocking: "+ productStockAtLocation("Milk", war1))
-      addProductQtyToTransaction(tra1, "Milk", 1, loc1)
+      addProductQtyToTransaction(tra1, "Milk", 1, loc1, LocationType.location)
       println("Total Milk at loc1 after purchasing: "+ productStockAtLocation("Milk", loc1))
       val lists = getProductsInTransaction(tra1)
       for (l <- lists){
